@@ -34,16 +34,93 @@ export default function HomePage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Best Award Deals Right Now</h1>
-        <p className="text-gray-600">
-          High-value points redemptions discovered recently. Only showing deals
-          above 1.8 cents per point.
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 md:p-12 mb-10 text-white">
+        <h1 className="text-3xl md:text-4xl font-bold mb-3">
+          Stop overpaying with your points.
+        </h1>
+        <p className="text-indigo-100 text-lg max-w-2xl mb-6">
+          Points Radar finds the highest-value award flights so you get the most
+          out of every point. We surface deals above 1.8 cents per point — the
+          threshold where points beat paying cash.
         </p>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/search"
+            className="inline-block bg-white text-indigo-700 font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-indigo-50 transition-colors"
+          >
+            Search Deals
+          </a>
+          <a
+            href="/destinations"
+            className="inline-block bg-indigo-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm hover:bg-indigo-400 transition-colors"
+          >
+            Where Can I Go?
+          </a>
+        </div>
+      </div>
+
+      {/* Feature cards */}
+      <div className="grid gap-4 md:grid-cols-2 mb-10">
+        <a
+          href="/search"
+          className="group block p-6 bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all"
+        >
+          <div className="text-2xl mb-2">&#x1F50D;</div>
+          <h2 className="font-semibold text-lg text-gray-900 mb-1 group-hover:text-indigo-600">
+            Award Deal Radar
+          </h2>
+          <p className="text-sm text-gray-600">
+            Search by airport, program, date, and cabin class. We check all
+            transfer partners automatically.
+          </p>
+        </a>
+        <a
+          href="/destinations"
+          className="group block p-6 bg-white rounded-xl border border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all"
+        >
+          <div className="text-2xl mb-2">&#x1F30D;</div>
+          <h2 className="font-semibold text-lg text-gray-900 mb-1 group-hover:text-emerald-600">
+            Where Can I Go?
+          </h2>
+          <p className="text-sm text-gray-600">
+            Enter your points balance and see every destination you can book,
+            ranked by value.
+          </p>
+        </a>
+      </div>
+
+      {/* Deal Feed */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Best Deals Right Now</h2>
+          <p className="text-sm text-gray-500">
+            Top award redemptions discovered recently
+          </p>
+        </div>
+        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+          Updated every 24h
+        </span>
       </div>
 
       {loading ? (
-        <p className="text-gray-500">Loading deals...</p>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse"
+            >
+              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
+              <div className="h-4 bg-gray-100 rounded w-1/2 mb-4" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-4 bg-gray-100 rounded" />
+                <div className="h-4 bg-gray-100 rounded" />
+                <div className="h-4 bg-gray-100 rounded" />
+                <div className="h-4 bg-gray-100 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : deals.length === 0 ? (
         <p className="text-gray-500">No deals found.</p>
       ) : (
@@ -53,31 +130,6 @@ export default function HomePage() {
           ))}
         </div>
       )}
-
-      <div className="mt-12 grid gap-4 md:grid-cols-2">
-        <a
-          href="/search"
-          className="block p-6 bg-indigo-50 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors"
-        >
-          <h2 className="font-semibold text-lg text-indigo-900 mb-1">
-            Award Deal Radar
-          </h2>
-          <p className="text-sm text-indigo-700">
-            Search for the best points redemptions from your airport.
-          </p>
-        </a>
-        <a
-          href="/destinations"
-          className="block p-6 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-colors"
-        >
-          <h2 className="font-semibold text-lg text-emerald-900 mb-1">
-            Where Can I Go?
-          </h2>
-          <p className="text-sm text-emerald-700">
-            Enter your points balance and see where you can fly.
-          </p>
-        </a>
-      </div>
     </div>
   );
 }

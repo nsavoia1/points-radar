@@ -56,13 +56,18 @@ export default function SearchPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Award Deal Radar</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Award Deal Radar</h1>
+        <p className="text-sm text-gray-500">
+          Search for high-value redemptions. We automatically check all transfer partners for your program.
+        </p>
+      </div>
 
-      <form onSubmit={handleSearch} className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+      <form onSubmit={handleSearch} className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Departure Airport *
+              Departure Airport
             </label>
             <input
               type="text"
@@ -70,14 +75,14 @@ export default function SearchPage() {
               value={origin}
               onChange={(e) => setOrigin(e.target.value.toUpperCase())}
               maxLength={3}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Destination (optional)
+              Destination <span className="text-gray-400">(optional)</span>
             </label>
             <input
               type="text"
@@ -85,18 +90,18 @@ export default function SearchPage() {
               value={destination}
               onChange={(e) => setDestination(e.target.value.toUpperCase())}
               maxLength={3}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Points Program *
+              Points Program
             </label>
             <select
               value={program}
               onChange={(e) => setProgram(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               {ALL_PROGRAMS.map((p) => (
                 <option key={p} value={p}>
@@ -108,24 +113,24 @@ export default function SearchPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Travel Month
+              Travel Month <span className="text-gray-400">(optional)</span>
             </label>
             <input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cabin Class
+              Cabin Class <span className="text-gray-400">(optional)</span>
             </label>
             <select
               value={cabin}
               onChange={(e) => setCabin(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Any</option>
               <option value="economy">Economy</option>
@@ -137,7 +142,7 @@ export default function SearchPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+              className="w-full bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
               {loading ? "Searching..." : "Search Deals"}
             </button>
@@ -146,17 +151,20 @@ export default function SearchPage() {
       </form>
 
       {searched && programsSearched.length > 0 && (
-        <p className="text-sm text-gray-500 mb-4">
-          Searching across: {programsSearched.join(", ")}
+        <p className="text-xs text-gray-400 mb-4">
+          Searched: {programsSearched.join(", ")}
         </p>
       )}
 
       {loading ? (
         <p className="text-gray-500">Searching...</p>
       ) : searched && deals.length === 0 ? (
-        <p className="text-gray-500">
-          No deals found above 1.8 cpp for this search. Try broadening your search.
-        </p>
+        <div className="text-center py-12">
+          <p className="text-gray-400 text-lg mb-1">No deals found</p>
+          <p className="text-gray-400 text-sm">
+            Try a different airport, program, or broaden your dates.
+          </p>
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {deals.map((deal) => (

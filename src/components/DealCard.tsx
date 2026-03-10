@@ -29,58 +29,75 @@ export function DealCard(props: DealCardProps) {
     return_date,
   } = props;
 
-  const cppColor =
-    cents_per_point >= 3
-      ? "text-green-700 bg-green-50"
-      : cents_per_point >= 2
-        ? "text-indigo-700 bg-indigo-50"
-        : "text-gray-700 bg-gray-100";
+  const cppBadge =
+    cents_per_point >= 5
+      ? "text-amber-800 bg-amber-100 border-amber-200"
+      : cents_per_point >= 3
+        ? "text-green-800 bg-green-100 border-green-200"
+        : cents_per_point >= 2
+          ? "text-indigo-800 bg-indigo-100 border-indigo-200"
+          : "text-gray-700 bg-gray-100 border-gray-200";
+
+  const cppLabel =
+    cents_per_point >= 5
+      ? "Incredible"
+      : cents_per_point >= 3
+        ? "Great"
+        : cents_per_point >= 2
+          ? "Good"
+          : "Fair";
+
+  function formatDate(d: string) {
+    return new Date(d + "T00:00:00").toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start mb-3">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-gray-300 transition-all">
+      {/* Route header */}
+      <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="font-semibold text-lg">
-            {origin_city} → {destination_city}
+          <h3 className="font-bold text-lg leading-tight">
+            {origin_city} &rarr; {destination_city}
           </h3>
-          <p className="text-sm text-gray-500">
-            {origin} → {destination}
+          <p className="text-xs text-gray-400 mt-0.5">
+            {origin} &rarr; {destination}
           </p>
         </div>
-        <span
-          className={`text-sm font-bold px-2 py-1 rounded ${cppColor}`}
-        >
-          {cents_per_point} cpp
-        </span>
+        <div className={`text-right`}>
+          <span
+            className={`inline-block text-sm font-bold px-2.5 py-1 rounded-lg border ${cppBadge}`}
+          >
+            {cents_per_point}&#162;/pt
+          </span>
+          <p className={`text-xs mt-1 ${cents_per_point >= 3 ? "text-green-600" : "text-gray-400"}`}>
+            {cppLabel}
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <p className="text-gray-500">Program</p>
-          <p className="font-medium">{airline_program}</p>
+      {/* Key stats */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 bg-gray-50 rounded-lg px-3 py-2 text-center">
+          <p className="text-xs text-gray-500">Points</p>
+          <p className="font-bold text-sm">{points_required.toLocaleString()}</p>
         </div>
-        <div>
-          <p className="text-gray-500">Cabin</p>
-          <p className="font-medium capitalize">{cabin_class}</p>
+        <div className="flex-1 bg-gray-50 rounded-lg px-3 py-2 text-center">
+          <p className="text-xs text-gray-500">Cash Price</p>
+          <p className="font-bold text-sm">${cash_price_usd.toLocaleString()}</p>
         </div>
-        <div>
-          <p className="text-gray-500">Points Required</p>
-          <p className="font-medium">{points_required.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-gray-500">Cash Price</p>
-          <p className="font-medium">${cash_price_usd.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-gray-500">Depart</p>
-          <p className="font-medium">{departure_date}</p>
-        </div>
-        {return_date && (
-          <div>
-            <p className="text-gray-500">Return</p>
-            <p className="font-medium">{return_date}</p>
-          </div>
-        )}
+      </div>
+
+      {/* Meta row */}
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <span className="font-medium text-gray-700">{airline_program}</span>
+        <span className="capitalize">{cabin_class}</span>
+        <span>
+          {formatDate(departure_date)}
+          {return_date ? ` – ${formatDate(return_date)}` : ""}
+        </span>
       </div>
     </div>
   );
