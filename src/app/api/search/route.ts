@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
   const startDate = req.nextUrl.searchParams.get("startDate");
   const endDate = req.nextUrl.searchParams.get("endDate");
   const cabin = req.nextUrl.searchParams.get("cabin");
+  const exactDates = req.nextUrl.searchParams.get("exactDates") === "1";
 
   if (!originRaw || !program) {
     return NextResponse.json(
@@ -42,8 +43,10 @@ export async function GET(req: NextRequest) {
     WHERE origin = ANY(${origins})
     AND airline_program = ANY(${airlinePrograms})
     AND (${destinations.length === 0}::boolean OR destination = ANY(${destinations.length > 0 ? destinations : ['__none__']}))
-    AND (${!startDate}::boolean OR departure_date >= ${startDate || ''})
-    AND (${!endDate}::boolean OR departure_date <= ${endDate || ''})
+    AND (${exactDates || !startDate}::boolean OR departure_date >= ${startDate || ''})
+    AND (${exactDates || !endDate}::boolean OR departure_date <= ${endDate || ''})
+    AND (${!exactDates || !startDate}::boolean OR departure_date = ${startDate || ''})
+    AND (${!exactDates || !endDate}::boolean OR return_date = ${endDate || ''})
     AND (${!cabin}::boolean OR cabin_class = ${cabin || ''})
     ORDER BY cents_per_point DESC
   `;

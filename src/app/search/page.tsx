@@ -13,12 +13,19 @@ interface Deal {
   origin: string;
   destination: string;
   airline_program: string;
+  operating_airline: string | null;
   cabin_class: string;
   points_required: number;
   cash_price_usd: number;
   cents_per_point: number;
   departure_date: string;
   return_date: string | null;
+  departure_time: string | null;
+  arrival_time: string | null;
+  duration_minutes: number | null;
+  stops: number | null;
+  layover_airports: string | null;
+  is_round_trip: number;
 }
 
 export default function SearchPage() {
@@ -30,6 +37,7 @@ export default function SearchPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [cabin, setCabin] = useState("");
+  const [flexibleDates, setFlexibleDates] = useState(true);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -50,6 +58,7 @@ export default function SearchPage() {
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
     if (cabin) params.set("cabin", cabin);
+    if (!flexibleDates) params.set("exactDates", "1");
 
     try {
       const res = await fetch(`/api/search?${params}`);
@@ -134,14 +143,69 @@ export default function SearchPage() {
           </div>
         </div>
 
+        {/* Date section with flexible toggle */}
         <div className="mt-4">
-          <DateRangePicker
-            label="Travel Dates"
-            startDate={startDate}
-            endDate={endDate}
-            onStartChange={setStartDate}
-            onEndChange={setEndDate}
-          />
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Travel Dates
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className="text-xs text-gray-500">
+                {flexibleDates ? "Showing range of dates" : "Exact dates"}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={flexibleDates}
+                onClick={() => setFlexibleDates(!flexibleDates)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  flexibleDates ? "bg-indigo-600" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    flexibleDates ? "translate-x-[18px]" : "translate-x-[3px]"
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-gray-700">Flexible</span>
+            </label>
+          </div>
+
+          {flexibleDates ? (
+            <DateRangePicker
+              label=""
+              startDate={startDate}
+              endDate={endDate}
+              onStartChange={setStartDate}
+              onEndChange={setEndDate}
+            />
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-xs text-gray-400 mb-0.5 block">Departure</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  required
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <span className="text-xs text-gray-400 mb-0.5 block">Return</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <span className="text-xs text-gray-400 mt-0.5 block">Leave blank for one-way</span>
+              </div>
+            </div>
+          )}
         </div>
       </form>
 

@@ -10,12 +10,19 @@ interface Deal {
   origin: string;
   destination: string;
   airline_program: string;
+  operating_airline: string | null;
   cabin_class: string;
   points_required: number;
   cash_price_usd: number;
   cents_per_point: number;
   departure_date: string;
   return_date: string | null;
+  departure_time: string | null;
+  arrival_time: string | null;
+  duration_minutes: number | null;
+  stops: number | null;
+  layover_airports: string | null;
+  is_round_trip: number;
 }
 
 export default function HomePage() {
