@@ -41,7 +41,7 @@ export default function HomePage() {
         </h1>
         <p className="text-indigo-100 text-lg max-w-2xl mb-6">
           Points Radar finds the highest-value award flights so you get the most
-          out of every point. We surface deals above 1.8 cents per point — the
+          out of every point. We surface deals above 1.5 cents per point — the
           threshold where points beat paying cash.
         </p>
         <div className="flex flex-wrap gap-3">

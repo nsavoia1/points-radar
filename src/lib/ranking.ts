@@ -16,7 +16,7 @@ export interface Deal {
   created_at: string;
 }
 
-const MIN_CPP = 1.8;
+const MIN_CPP = 1.5;
 
 /**
  * Compute cents-per-point value.

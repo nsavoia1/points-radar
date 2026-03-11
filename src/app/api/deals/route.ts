@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const rows = db
     .prepare(
       `SELECT * FROM award_deals
-       WHERE cents_per_point >= 1.8
+       WHERE cents_per_point >= 1.5
        ORDER BY cents_per_point DESC
        LIMIT ?`
     )
