@@ -1,18 +1,21 @@
 /**
- * Sync script: pulls award availability from seats.aero and upserts into local DB.
+ * Sync script: pulls award availability from seats.aero and upserts into Neon Postgres.
  *
  * Usage:
  *   npx tsx scripts/sync-seats-aero.ts
  *
  * Run on a cron (e.g. every 4-6 hours) to keep data fresh.
- * At ~200 routes and 1000 calls/day, you can refresh 4-5x per day.
+ * At ~154 routes and 1000 calls/day, you can refresh ~6x per day.
  */
 
-import Database from "better-sqlite3";
-import path from "path";
+import { neon } from "@neondatabase/serverless";
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+
 import { getCityName } from "../src/lib/airports";
 
-const DB_PATH = path.join(process.cwd(), "points-radar.db");
+const sql = neon(process.env.DATABASE_URL!);
+
 const BASE_URL = "https://seats.aero/partnerapi";
 
 const API_KEY = process.env.SEATS_AERO_API_KEY;
@@ -26,13 +29,6 @@ const ORIGINS = [
   "JFK", "EWR", "BOS", "LAX", "SFO", "ORD", "IAD", "DCA",
   "MIA", "ATL", "DFW", "SEA", "DEN", "IAH", "PHX", "MSP",
   "DTW", "CLT", "PHL", "YYZ", "YVR", "YUL",
-];
-
-// Popular long-haul destinations (where award value is highest)
-const DESTINATIONS = [
-  "LHR", "CDG", "AMS", "FRA", "MAD", "BCN", "FCO", "LIS",
-  "DUB", "NRT", "HND", "ICN", "SIN", "HKG", "BKK", "SYD",
-  "DOH", "DXB", "GRU", "EZE", "BOG", "CPT", "NBO",
 ];
 
 // seats.aero source IDs we care about
@@ -58,7 +54,6 @@ const CABIN_LETTER: Record<string, string> = {
   F: "first",
 };
 
-// Region-based cash estimates (same as cash-estimates.ts)
 function estimateCashPrice(origin: string, dest: string, cabin: string): number {
   const regionMap: Record<string, string> = {
     JFK: "NA", EWR: "NA", LGA: "NA", BOS: "NA", ORD: "NA", LAX: "NA", SFO: "NA",
@@ -114,7 +109,6 @@ async function fetchAvailability(origin: string, source: string): Promise<SeatsA
     take: "200",
   });
 
-  // Only look 90 days ahead
   const start = new Date();
   const end = new Date();
   end.setDate(end.getDate() + 90);
@@ -147,13 +141,10 @@ function parseMileageCost(cost: string): number {
 }
 
 async function main() {
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-
   // Ensure table exists
-  db.exec(`
+  await sql`
     CREATE TABLE IF NOT EXISTS award_deals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       origin TEXT NOT NULL,
       destination TEXT NOT NULL,
       origin_city TEXT NOT NULL,
@@ -167,37 +158,14 @@ async function main() {
       return_date TEXT,
       is_round_trip INTEGER NOT NULL DEFAULT 0,
       source TEXT NOT NULL DEFAULT 'mock',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_deals_origin ON award_deals(origin);
-    CREATE INDEX IF NOT EXISTS idx_deals_destination ON award_deals(destination);
-    CREATE INDEX IF NOT EXISTS idx_deals_program ON award_deals(airline_program);
-    CREATE INDEX IF NOT EXISTS idx_deals_cpp ON award_deals(cents_per_point);
-    CREATE INDEX IF NOT EXISTS idx_deals_date ON award_deals(departure_date);
-  `);
-
-  const upsert = db.prepare(`
-    INSERT INTO award_deals (origin, destination, origin_city, destination_city,
-      airline_program, cabin_class, points_required, cash_price_usd, cents_per_point,
-      departure_date, is_round_trip, source, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'seats.aero', datetime('now'))
-    ON CONFLICT(id) DO UPDATE SET
-      points_required = excluded.points_required,
-      cash_price_usd = excluded.cash_price_usd,
-      cents_per_point = excluded.cents_per_point,
-      updated_at = datetime('now')
-  `);
-
-  // Dedup: delete old seats.aero data before inserting fresh
-  const deleteOld = db.prepare(
-    `DELETE FROM award_deals WHERE source = 'seats.aero' AND origin = ? AND airline_program = ?`
-  );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 
   let totalDeals = 0;
   let apiCalls = 0;
 
-  // Build route/source pairs, prioritizing high-value combos
   const tasks: { origin: string; source: string }[] = [];
   for (const origin of ORIGINS) {
     for (const source of SOURCES) {
@@ -205,13 +173,7 @@ async function main() {
     }
   }
 
-  console.log(`Starting sync: ${tasks.length} origin/source pairs`);
-  console.log(`API budget: ~1000 calls/day, using ${tasks.length} calls this run\n`);
-
-  if (tasks.length > 900) {
-    console.warn(`WARNING: ${tasks.length} calls is close to the 1000/day limit.`);
-    console.warn(`Consider reducing ORIGINS or SOURCES.\n`);
-  }
+  console.log(`Starting sync: ${tasks.length} origin/source pairs\n`);
 
   for (const { origin, source } of tasks) {
     apiCalls++;
@@ -221,26 +183,15 @@ async function main() {
     const programName = SOURCE_TO_PROGRAM[source] || source;
 
     // Clear old data for this origin/program
-    deleteOld.run(origin, programName);
+    await sql`DELETE FROM award_deals WHERE source = 'seats.aero' AND origin = ${origin} AND airline_program = ${programName}`;
 
     let count = 0;
-    const insertBatch = db.transaction((rows: any[]) => {
-      for (const row of rows) {
-        upsert.run(
-          row.origin, row.destination, row.origin_city, row.destination_city,
-          row.airline_program, row.cabin_class, row.points_required,
-          row.cash_price_usd, row.cents_per_point, row.departure_date
-        );
-      }
-    });
-
-    const rows: any[] = [];
     for (const avail of results) {
       const cabins = [
-        { letter: "Y", available: avail.YAvailable, cost: avail.YMileageCost, seats: avail.YRemainingSeats },
-        { letter: "W", available: avail.WAvailable, cost: avail.WMileageCost, seats: avail.WRemainingSeats },
-        { letter: "J", available: avail.JAvailable, cost: avail.JMileageCost, seats: avail.JRemainingSeats },
-        { letter: "F", available: avail.FAvailable, cost: avail.FMileageCost, seats: avail.FRemainingSeats },
+        { letter: "Y", available: avail.YAvailable, cost: avail.YMileageCost },
+        { letter: "W", available: avail.WAvailable, cost: avail.WMileageCost },
+        { letter: "J", available: avail.JAvailable, cost: avail.JMileageCost },
+        { letter: "F", available: avail.FAvailable, cost: avail.FMileageCost },
       ];
 
       for (const cabin of cabins) {
@@ -253,23 +204,14 @@ async function main() {
         const cashPrice = estimateCashPrice(origin, dest, cabinClass);
         const cpp = Math.round(((cashPrice * 100) / points) * 100) / 100;
 
-        rows.push({
-          origin,
-          destination: dest,
-          origin_city: getCityName(origin),
-          destination_city: getCityName(dest),
-          airline_program: programName,
-          cabin_class: cabinClass,
-          points_required: points,
-          cash_price_usd: cashPrice,
-          cents_per_point: cpp,
-          departure_date: avail.Date,
-        });
+        await sql`
+          INSERT INTO award_deals (origin, destination, origin_city, destination_city, airline_program, cabin_class, points_required, cash_price_usd, cents_per_point, departure_date, is_round_trip, source)
+          VALUES (${origin}, ${dest}, ${getCityName(origin)}, ${getCityName(dest)}, ${programName}, ${cabinClass}, ${points}, ${cashPrice}, ${cpp}, ${avail.Date}, 0, 'seats.aero')
+        `;
         count++;
       }
     }
 
-    insertBatch(rows);
     totalDeals += count;
     console.log(` ${count} deals`);
 
@@ -278,16 +220,12 @@ async function main() {
   }
 
   // Clean up expired deals
-  const deleted = db.prepare(
-    `DELETE FROM award_deals WHERE departure_date < date('now')`
-  ).run();
+  const deleted = await sql`DELETE FROM award_deals WHERE departure_date < CURRENT_DATE`;
 
   console.log(`\nSync complete:`);
   console.log(`  API calls: ${apiCalls}`);
   console.log(`  Deals synced: ${totalDeals}`);
-  console.log(`  Expired deals cleaned: ${deleted.changes}`);
-
-  db.close();
+  console.log(`  Expired deals cleaned: ${deleted.length || 0}`);
 }
 
 main().catch((err) => {

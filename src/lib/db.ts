@@ -1,24 +1,22 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { neon, NeonQueryFunction } from "@neondatabase/serverless";
 
-const DB_PATH = path.join(process.cwd(), "points-radar.db");
+let _sql: NeonQueryFunction<false, false> | null = null;
 
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DB_PATH);
-    _db.pragma("journal_mode = WAL");
-    _db.pragma("foreign_keys = ON");
-    initSchema(_db);
+export function getSQL() {
+  if (!_sql) {
+    _sql = neon(process.env.DATABASE_URL!);
   }
-  return _db;
+  return _sql;
 }
 
-function initSchema(db: Database.Database) {
-  db.exec(`
+export { getSQL as sql };
+
+export async function initSchema() {
+  const sql = getSQL();
+
+  await sql`
     CREATE TABLE IF NOT EXISTS award_deals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       origin TEXT NOT NULL,
       destination TEXT NOT NULL,
       origin_city TEXT NOT NULL,
@@ -32,21 +30,22 @@ function initSchema(db: Database.Database) {
       return_date TEXT,
       is_round_trip INTEGER NOT NULL DEFAULT 0,
       source TEXT NOT NULL DEFAULT 'mock',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 
-    CREATE INDEX IF NOT EXISTS idx_deals_origin ON award_deals(origin);
-    CREATE INDEX IF NOT EXISTS idx_deals_destination ON award_deals(destination);
-    CREATE INDEX IF NOT EXISTS idx_deals_program ON award_deals(airline_program);
-    CREATE INDEX IF NOT EXISTS idx_deals_cpp ON award_deals(cents_per_point);
-    CREATE INDEX IF NOT EXISTS idx_deals_date ON award_deals(departure_date);
-    CREATE INDEX IF NOT EXISTS idx_deals_created ON award_deals(created_at);
+  await sql`CREATE INDEX IF NOT EXISTS idx_deals_origin ON award_deals(origin)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_deals_destination ON award_deals(destination)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_deals_program ON award_deals(airline_program)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_deals_cpp ON award_deals(cents_per_point)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_deals_date ON award_deals(departure_date)`;
 
+  await sql`
     CREATE TABLE IF NOT EXISTS points_programs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       transfer_partners TEXT NOT NULL DEFAULT '[]'
-    );
-  `);
+    )
+  `;
 }

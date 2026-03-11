@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getSQL } from "@/lib/db";
 import { rankDeals, computeCpp } from "@/lib/ranking";
 import { getAirlinePrograms } from "@/lib/programs";
 import { searchMultiplePrograms, hasApiKey } from "@/lib/seats-aero";
@@ -35,52 +35,24 @@ export async function GET(req: NextRequest) {
   const destinations = destRaw ? destRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const airlinePrograms = getAirlinePrograms(program);
 
-  // 1. Query local DB
-  const db = getDb();
-  const conditions: string[] = [];
-  const params: (string | number)[] = [];
-
-  // Origin(s)
-  const originPh = origins.map(() => "?").join(", ");
-  conditions.push(`origin IN (${originPh})`);
-  params.push(...origins);
-
-  // Destination(s)
-  if (destinations.length > 0) {
-    const destPh = destinations.map(() => "?").join(", ");
-    conditions.push(`destination IN (${destPh})`);
-    params.push(...destinations);
-  }
-
-  // Programs
-  const progPh = airlinePrograms.map(() => "?").join(", ");
-  conditions.push(`airline_program IN (${progPh})`);
-  params.push(...airlinePrograms);
-
-  // Date range
-  if (startDate) {
-    conditions.push("departure_date >= ?");
-    params.push(startDate);
-  }
-  if (endDate) {
-    conditions.push("departure_date <= ?");
-    params.push(endDate);
-  }
-
-  if (cabin) {
-    conditions.push("cabin_class = ?");
-    params.push(cabin);
-  }
-
-  const sql = `SELECT * FROM award_deals WHERE ${conditions.join(" AND ")} ORDER BY cents_per_point DESC`;
-  const dbRows = db.prepare(sql).all(...params) as any[];
+  // 1. Query Postgres
+  const sql = getSQL();
+  const dbRows = await sql`
+    SELECT * FROM award_deals
+    WHERE origin = ANY(${origins})
+    AND airline_program = ANY(${airlinePrograms})
+    AND (${destinations.length === 0}::boolean OR destination = ANY(${destinations.length > 0 ? destinations : ['__none__']}))
+    AND (${!startDate}::boolean OR departure_date >= ${startDate || ''})
+    AND (${!endDate}::boolean OR departure_date <= ${endDate || ''})
+    AND (${!cabin}::boolean OR cabin_class = ${cabin || ''})
+    ORDER BY cents_per_point DESC
+  `;
 
   // 2. Fetch live data if API key is set
   let liveDeals: any[] = [];
   const useLiveApi = hasApiKey();
 
   if (useLiveApi) {
-    // seats.aero accepts comma-separated origins
     const results = await searchMultiplePrograms({
       origin: origins.join(","),
       destination: destinations.length > 0 ? destinations.join(",") : undefined,
@@ -114,7 +86,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 3. Merge and rank
-  const allDeals = [...dbRows, ...liveDeals];
+  const allDeals = [...(dbRows as any[]), ...liveDeals];
   const deals = rankDeals(allDeals);
 
   return NextResponse.json({

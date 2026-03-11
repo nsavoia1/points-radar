@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getSQL } from "@/lib/db";
 import { rankDeals, filterByBalance, computeCpp } from "@/lib/ranking";
 import { getAirlinePrograms } from "@/lib/programs";
 import { searchMultiplePrograms, hasApiKey } from "@/lib/seats-aero";
@@ -32,33 +32,17 @@ export async function GET(req: NextRequest) {
   const origins = originRaw.split(",").map((s) => s.trim()).filter(Boolean);
   const airlinePrograms = getAirlinePrograms(program);
 
-  // 1. Query local DB
-  const db = getDb();
-  const conditions: string[] = [];
-  const params: (string | number)[] = [];
-
-  const originPh = origins.map(() => "?").join(", ");
-  conditions.push(`origin IN (${originPh})`);
-  params.push(...origins);
-
-  conditions.push("points_required <= ?");
-  params.push(points);
-
-  const progPh = airlinePrograms.map(() => "?").join(", ");
-  conditions.push(`airline_program IN (${progPh})`);
-  params.push(...airlinePrograms);
-
-  if (startDate) {
-    conditions.push("departure_date >= ?");
-    params.push(startDate);
-  }
-  if (endDate) {
-    conditions.push("departure_date <= ?");
-    params.push(endDate);
-  }
-
-  const sql = `SELECT * FROM award_deals WHERE ${conditions.join(" AND ")} ORDER BY cents_per_point DESC`;
-  const dbRows = db.prepare(sql).all(...params) as any[];
+  // 1. Query Postgres
+  const sql = getSQL();
+  const dbRows = await sql`
+    SELECT * FROM award_deals
+    WHERE origin = ANY(${origins})
+    AND points_required <= ${points}
+    AND airline_program = ANY(${airlinePrograms})
+    AND (${!startDate}::boolean OR departure_date >= ${startDate || ''})
+    AND (${!endDate}::boolean OR departure_date <= ${endDate || ''})
+    ORDER BY cents_per_point DESC
+  `;
 
   // 2. Fetch live data if available
   let liveDeals: any[] = [];
@@ -98,7 +82,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 3. Merge and rank
-  const allDeals = [...dbRows, ...liveDeals];
+  const allDeals = [...(dbRows as any[]), ...liveDeals];
   const deals = rankDeals(filterByBalance(allDeals, points));
 
   return NextResponse.json({
