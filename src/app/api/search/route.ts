@@ -9,45 +9,62 @@ import { estimateCashPriceByAirport } from "@/lib/cash-estimates";
  * GET /api/search — Award Deal Radar (Feature 1)
  *
  * Query params:
- *   origin       — IATA code (required)
- *   destination  — IATA code (optional)
+ *   origin       — IATA code(s), comma-separated (required)
+ *   destination  — IATA code(s), comma-separated (optional)
  *   program      — points program name (required)
- *   month        — YYYY-MM (optional)
- *   cabin        — economy | business (optional)
+ *   startDate    — YYYY-MM-DD (optional)
+ *   endDate      — YYYY-MM-DD (optional)
+ *   cabin        — economy | business | first (optional)
  */
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.searchParams.get("origin")?.toUpperCase();
-  const destination = req.nextUrl.searchParams.get("destination")?.toUpperCase();
+  const originRaw = req.nextUrl.searchParams.get("origin")?.toUpperCase();
+  const destRaw = req.nextUrl.searchParams.get("destination")?.toUpperCase();
   const program = req.nextUrl.searchParams.get("program");
-  const month = req.nextUrl.searchParams.get("month");
+  const startDate = req.nextUrl.searchParams.get("startDate");
+  const endDate = req.nextUrl.searchParams.get("endDate");
   const cabin = req.nextUrl.searchParams.get("cabin");
 
-  if (!origin || !program) {
+  if (!originRaw || !program) {
     return NextResponse.json(
       { error: "origin and program are required" },
       { status: 400 }
     );
   }
 
+  const origins = originRaw.split(",").map((s) => s.trim()).filter(Boolean);
+  const destinations = destRaw ? destRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const airlinePrograms = getAirlinePrograms(program);
 
-  // 1. Query local DB (mock / cached data)
+  // 1. Query local DB
   const db = getDb();
-  const conditions: string[] = ["origin = ?"];
-  const params: (string | number)[] = [origin];
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
 
-  if (destination) {
-    conditions.push("destination = ?");
-    params.push(destination);
+  // Origin(s)
+  const originPh = origins.map(() => "?").join(", ");
+  conditions.push(`origin IN (${originPh})`);
+  params.push(...origins);
+
+  // Destination(s)
+  if (destinations.length > 0) {
+    const destPh = destinations.map(() => "?").join(", ");
+    conditions.push(`destination IN (${destPh})`);
+    params.push(...destinations);
   }
 
-  const placeholders = airlinePrograms.map(() => "?").join(", ");
-  conditions.push(`airline_program IN (${placeholders})`);
+  // Programs
+  const progPh = airlinePrograms.map(() => "?").join(", ");
+  conditions.push(`airline_program IN (${progPh})`);
   params.push(...airlinePrograms);
 
-  if (month) {
-    conditions.push("departure_date LIKE ?");
-    params.push(`${month}%`);
+  // Date range
+  if (startDate) {
+    conditions.push("departure_date >= ?");
+    params.push(startDate);
+  }
+  if (endDate) {
+    conditions.push("departure_date <= ?");
+    params.push(endDate);
   }
 
   if (cabin) {
@@ -58,24 +75,21 @@ export async function GET(req: NextRequest) {
   const sql = `SELECT * FROM award_deals WHERE ${conditions.join(" AND ")} ORDER BY cents_per_point DESC`;
   const dbRows = db.prepare(sql).all(...params) as any[];
 
-  // 2. If seats.aero API key is configured, fetch live data too
+  // 2. Fetch live data if API key is set
   let liveDeals: any[] = [];
   const useLiveApi = hasApiKey();
 
   if (useLiveApi) {
-    const startDate = month ? `${month}-01` : undefined;
-    const endDate = month ? `${month}-28` : undefined;
-
+    // seats.aero accepts comma-separated origins
     const results = await searchMultiplePrograms({
-      origin,
-      destination,
-      startDate,
-      endDate,
+      origin: origins.join(","),
+      destination: destinations.length > 0 ? destinations.join(",") : undefined,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
       cabin: cabin || undefined,
       programs: airlinePrograms,
     });
 
-    // Convert seats.aero results to our deal format
     liveDeals = results.map((r) => {
       const cashPrice = estimateCashPriceByAirport(r.origin, r.destination, r.cabin_class);
       const cpp = computeCpp(cashPrice, r.points_required);
@@ -83,7 +97,7 @@ export async function GET(req: NextRequest) {
         id: 0,
         origin: r.origin,
         destination: r.destination,
-        origin_city: r.origin, // will show IATA code
+        origin_city: r.origin,
         destination_city: r.destination,
         airline_program: r.airline_program,
         cabin_class: r.cabin_class,

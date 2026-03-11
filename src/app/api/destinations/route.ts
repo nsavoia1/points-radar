@@ -9,38 +9,52 @@ import { estimateCashPriceByAirport } from "@/lib/cash-estimates";
  * GET /api/destinations — "Where Can I Go?" (Feature 2)
  *
  * Query params:
- *   origin   — IATA code (required)
- *   points   — points balance (required)
- *   program  — points program name (required)
- *   month    — YYYY-MM (optional)
+ *   origin    — IATA code(s), comma-separated (required)
+ *   points    — points balance (required)
+ *   program   — points program name (required)
+ *   startDate — YYYY-MM-DD (optional)
+ *   endDate   — YYYY-MM-DD (optional)
  */
 export async function GET(req: NextRequest) {
-  const origin = req.nextUrl.searchParams.get("origin")?.toUpperCase();
+  const originRaw = req.nextUrl.searchParams.get("origin")?.toUpperCase();
   const points = parseInt(req.nextUrl.searchParams.get("points") || "0");
   const program = req.nextUrl.searchParams.get("program");
-  const month = req.nextUrl.searchParams.get("month");
+  const startDate = req.nextUrl.searchParams.get("startDate");
+  const endDate = req.nextUrl.searchParams.get("endDate");
 
-  if (!origin || !points || !program) {
+  if (!originRaw || !points || !program) {
     return NextResponse.json(
       { error: "origin, points, and program are required" },
       { status: 400 }
     );
   }
 
+  const origins = originRaw.split(",").map((s) => s.trim()).filter(Boolean);
   const airlinePrograms = getAirlinePrograms(program);
 
   // 1. Query local DB
   const db = getDb();
-  const conditions: string[] = ["origin = ?", "points_required <= ?"];
-  const params: (string | number)[] = [origin, points];
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
 
-  const placeholders = airlinePrograms.map(() => "?").join(", ");
-  conditions.push(`airline_program IN (${placeholders})`);
+  const originPh = origins.map(() => "?").join(", ");
+  conditions.push(`origin IN (${originPh})`);
+  params.push(...origins);
+
+  conditions.push("points_required <= ?");
+  params.push(points);
+
+  const progPh = airlinePrograms.map(() => "?").join(", ");
+  conditions.push(`airline_program IN (${progPh})`);
   params.push(...airlinePrograms);
 
-  if (month) {
-    conditions.push("departure_date LIKE ?");
-    params.push(`${month}%`);
+  if (startDate) {
+    conditions.push("departure_date >= ?");
+    params.push(startDate);
+  }
+  if (endDate) {
+    conditions.push("departure_date <= ?");
+    params.push(endDate);
   }
 
   const sql = `SELECT * FROM award_deals WHERE ${conditions.join(" AND ")} ORDER BY cents_per_point DESC`;
@@ -51,13 +65,10 @@ export async function GET(req: NextRequest) {
   const useLiveApi = hasApiKey();
 
   if (useLiveApi) {
-    const startDate = month ? `${month}-01` : undefined;
-    const endDate = month ? `${month}-28` : undefined;
-
     const results = await searchMultiplePrograms({
-      origin,
-      startDate,
-      endDate,
+      origin: origins.join(","),
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
       programs: airlinePrograms,
     });
 

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DealCard } from "@/components/DealCard";
+import { AirportInput } from "@/components/AirportInput";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { ALL_PROGRAMS } from "@/lib/programs";
 
 interface Deal {
@@ -20,10 +22,13 @@ interface Deal {
 }
 
 export default function SearchPage() {
-  const [origin, setOrigin] = useState("");
-  const [destination, setDestination] = useState("");
+  const [originCodes, setOriginCodes] = useState<string[]>([]);
+  const [originDisplay, setOriginDisplay] = useState("");
+  const [destCodes, setDestCodes] = useState<string[]>([]);
+  const [destDisplay, setDestDisplay] = useState("");
   const [program, setProgram] = useState(ALL_PROGRAMS[0]);
-  const [month, setMonth] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [cabin, setCabin] = useState("");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,14 +37,18 @@ export default function SearchPage() {
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!origin) return;
+    if (originCodes.length === 0) return;
 
     setLoading(true);
     setSearched(true);
 
-    const params = new URLSearchParams({ origin, program });
-    if (destination) params.set("destination", destination);
-    if (month) params.set("month", month);
+    const params = new URLSearchParams({
+      origin: originCodes.join(","),
+      program,
+    });
+    if (destCodes.length > 0) params.set("destination", destCodes.join(","));
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
     if (cabin) params.set("cabin", cabin);
 
     try {
@@ -59,44 +68,32 @@ export default function SearchPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Award Deal Radar</h1>
         <p className="text-sm text-gray-500">
-          Search for high-value redemptions. We automatically check all transfer partners for your program.
+          Find the best points redemptions. We check all transfer partners automatically.
         </p>
       </div>
 
       <form onSubmit={handleSearch} className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Departure Airport
-            </label>
-            <input
-              type="text"
-              placeholder="BOS"
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value.toUpperCase())}
-              maxLength={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-            />
-          </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <AirportInput
+            label="From"
+            placeholder="Type a city — e.g. Boston, New York"
+            required
+            value={originCodes}
+            onChange={(codes, display) => { setOriginCodes(codes); setOriginDisplay(display); }}
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Destination <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="MAD"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value.toUpperCase())}
-              maxLength={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
+          <AirportInput
+            label="To"
+            placeholder="Anywhere (or type a city)"
+            value={destCodes}
+            onChange={(codes, display) => { setDestCodes(codes); setDestDisplay(display); }}
+          />
+        </div>
 
+        <div className="grid gap-4 md:grid-cols-3 mt-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Points Program
+              Points Program<span className="text-red-400 ml-0.5">*</span>
             </label>
             <select
               value={program}
@@ -104,60 +101,71 @@ export default function SearchPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               {ALL_PROGRAMS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Travel Month <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cabin Class <span className="text-gray-400">(optional)</span>
+              Cabin Class
             </label>
             <select
               value={cabin}
               onChange={(e) => setCabin(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
-              <option value="">Any</option>
+              <option value="">Any cabin</option>
               <option value="economy">Economy</option>
+              <option value="premium">Premium Economy</option>
               <option value="business">Business</option>
+              <option value="first">First</option>
             </select>
           </div>
 
           <div className="flex items-end">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || originCodes.length === 0}
               className="w-full bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
               {loading ? "Searching..." : "Search Deals"}
             </button>
           </div>
         </div>
+
+        <div className="mt-4">
+          <DateRangePicker
+            label="Travel Dates"
+            startDate={startDate}
+            endDate={endDate}
+            onStartChange={setStartDate}
+            onEndChange={setEndDate}
+          />
+        </div>
       </form>
 
       {searched && programsSearched.length > 0 && (
         <p className="text-xs text-gray-400 mb-4">
           Searched: {programsSearched.join(", ")}
+          {originDisplay && ` from ${originDisplay}`}
+          {destDisplay && ` to ${destDisplay}`}
         </p>
       )}
 
       {loading ? (
-        <p className="text-gray-500">Searching...</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
+              <div className="h-4 bg-gray-100 rounded w-1/2 mb-4" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-4 bg-gray-100 rounded" />
+                <div className="h-4 bg-gray-100 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : searched && deals.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-400 text-lg mb-1">No deals found</p>
@@ -167,8 +175,8 @@ export default function SearchPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {deals.map((deal) => (
-            <DealCard key={deal.id} {...deal} />
+          {deals.map((deal, i) => (
+            <DealCard key={`${deal.id}-${i}`} {...deal} />
           ))}
         </div>
       )}

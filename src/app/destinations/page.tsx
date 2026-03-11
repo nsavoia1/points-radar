@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { DealCard } from "@/components/DealCard";
+import { AirportInput } from "@/components/AirportInput";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { ALL_PROGRAMS } from "@/lib/programs";
 
 interface Deal {
@@ -20,23 +22,29 @@ interface Deal {
 }
 
 export default function DestinationsPage() {
-  const [origin, setOrigin] = useState("");
+  const [originCodes, setOriginCodes] = useState<string[]>([]);
   const [points, setPoints] = useState("");
   const [program, setProgram] = useState(ALL_PROGRAMS[0]);
-  const [month, setMonth] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!origin || !points) return;
+    if (originCodes.length === 0 || !points) return;
 
     setLoading(true);
     setSearched(true);
 
-    const params = new URLSearchParams({ origin, points, program });
-    if (month) params.set("month", month);
+    const params = new URLSearchParams({
+      origin: originCodes.join(","),
+      points,
+      program,
+    });
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
 
     try {
       const res = await fetch(`/api/destinations?${params}`);
@@ -59,39 +67,36 @@ export default function DestinationsPage() {
       </div>
 
       <form onSubmit={handleSearch} className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <AirportInput
+            label="Home Airport"
+            placeholder="Type your city — e.g. Boston, Chicago"
+            required
+            value={originCodes}
+            onChange={(codes) => setOriginCodes(codes)}
+            accent="emerald"
+          />
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Home Airport
+              Points Balance<span className="text-red-400 ml-0.5">*</span>
             </label>
             <input
               type="text"
-              placeholder="BOS"
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value.toUpperCase())}
-              maxLength={3}
+              inputMode="numeric"
+              placeholder="e.g. 60,000"
+              value={points ? parseInt(points).toLocaleString() : ""}
+              onChange={(e) => setPoints(e.target.value.replace(/[^0-9]/g, ""))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               required
             />
           </div>
+        </div>
 
+        <div className="grid gap-4 md:grid-cols-2 mt-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Points Balance
-            </label>
-            <input
-              type="number"
-              placeholder="60,000"
-              value={points}
-              onChange={(e) => setPoints(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Points Program
+              Points Program<span className="text-red-400 ml-0.5">*</span>
             </label>
             <select
               value={program}
@@ -99,37 +104,47 @@ export default function DestinationsPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             >
               {ALL_PROGRAMS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Travel Month <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={loading || originCodes.length === 0 || !points}
+              className="w-full bg-emerald-600 text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Searching..." : "Find Destinations"}
+            </button>
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-4 bg-emerald-600 text-white rounded-lg px-6 py-2 text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Searching..." : "Find Destinations"}
-        </button>
+        <div className="mt-4">
+          <DateRangePicker
+            label="Travel Dates"
+            startDate={startDate}
+            endDate={endDate}
+            onStartChange={setStartDate}
+            onEndChange={setEndDate}
+            accent="emerald"
+          />
+        </div>
       </form>
 
       {loading ? (
-        <p className="text-gray-500">Searching...</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse">
+              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
+              <div className="h-4 bg-gray-100 rounded w-1/2 mb-4" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-4 bg-gray-100 rounded" />
+                <div className="h-4 bg-gray-100 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : searched && deals.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-400 text-lg mb-1">No destinations found</p>
@@ -150,8 +165,8 @@ export default function DestinationsPage() {
             </div>
           )}
           <div className="grid gap-4 md:grid-cols-2">
-            {deals.map((deal) => (
-              <DealCard key={deal.id} {...deal} />
+            {deals.map((deal, i) => (
+              <DealCard key={`${deal.id}-${i}`} {...deal} />
             ))}
           </div>
         </>
