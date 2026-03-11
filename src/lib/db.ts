@@ -35,6 +35,12 @@ export async function initSchema() {
       stops INTEGER NOT NULL DEFAULT 0,
       layover_airports TEXT,
       is_round_trip INTEGER NOT NULL DEFAULT 0,
+      return_departure_time TEXT,
+      return_arrival_time TEXT,
+      return_duration_minutes INTEGER,
+      return_stops INTEGER,
+      return_layover_airports TEXT,
+      return_operating_airline TEXT,
       source TEXT NOT NULL DEFAULT 'mock',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

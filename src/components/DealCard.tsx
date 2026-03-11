@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { getCardPrograms, getCardShortName } from "@/lib/programs";
 
 interface DealCardProps {
@@ -21,6 +22,12 @@ interface DealCardProps {
   stops?: number | null;
   layover_airports?: string | null;
   is_round_trip?: number;
+  return_departure_time?: string | null;
+  return_arrival_time?: string | null;
+  return_duration_minutes?: number | null;
+  return_stops?: number | null;
+  return_layover_airports?: string | null;
+  return_operating_airline?: string | null;
 }
 
 export function DealCard(props: DealCardProps) {
@@ -43,7 +50,16 @@ export function DealCard(props: DealCardProps) {
     stops,
     layover_airports,
     is_round_trip,
+    return_departure_time,
+    return_arrival_time,
+    return_duration_minutes,
+    return_stops,
+    return_layover_airports,
+    return_operating_airline,
   } = props;
+
+  const [expanded, setExpanded] = useState(false);
+  const hasReturnDetails = is_round_trip && return_departure_time;
 
   const cppBadge =
     cents_per_point >= 5
@@ -76,17 +92,73 @@ export function DealCard(props: DealCardProps) {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   }
 
-  const stopsLabel =
-    stops === 0 || stops == null
+  function stopsLabel(s: number | null | undefined, layovers: string | null | undefined) {
+    return s === 0 || s == null
       ? "Nonstop"
-      : stops === 1
-        ? `1 stop${layover_airports ? ` (${layover_airports})` : ""}`
-        : `${stops} stops${layover_airports ? ` (${layover_airports})` : ""}`;
+      : s === 1
+        ? `1 stop${layovers ? ` (${layovers})` : ""}`
+        : `${s} stops${layovers ? ` (${layovers})` : ""}`;
+  }
 
   const tripType = is_round_trip ? "Round trip" : "One way";
 
+  function FlightLeg({
+    fromCode, fromCity, toCode, toCity,
+    depTime, arrTime, dur, numStops, layovers, airline, label,
+  }: {
+    fromCode: string; fromCity: string; toCode: string; toCity: string;
+    depTime?: string | null; arrTime?: string | null;
+    dur?: number | null; numStops?: number | null;
+    layovers?: string | null; airline?: string | null; label: string;
+  }) {
+    return (
+      <div>
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">{label}</p>
+        <div className="flex items-center gap-3">
+          <div className="text-center min-w-[60px]">
+            {depTime && (
+              <p className="text-lg font-bold text-gray-900 leading-tight">{depTime}</p>
+            )}
+            <p className="text-sm font-semibold text-gray-700">{fromCode}</p>
+            <p className="text-xs text-gray-400">{fromCity}</p>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center">
+            {dur != null && (
+              <p className="text-xs text-gray-400 mb-1">{formatDuration(dur)}</p>
+            )}
+            <div className="w-full flex items-center">
+              <div className="w-2 h-2 rounded-full bg-gray-300" />
+              <div className="flex-1 border-t border-dashed border-gray-300 relative">
+                {numStops != null && numStops > 0 && (
+                  <span className="absolute left-1/2 -translate-x-1/2 -top-0.5 w-1.5 h-1.5 rounded-full bg-gray-400" />
+                )}
+              </div>
+              <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-gray-300" />
+            </div>
+            <p className="text-xs text-gray-400 mt-1">{stopsLabel(numStops, layovers)}</p>
+          </div>
+
+          <div className="text-center min-w-[60px]">
+            {arrTime && (
+              <p className="text-lg font-bold text-gray-900 leading-tight">{arrTime}</p>
+            )}
+            <p className="text-sm font-semibold text-gray-700">{toCode}</p>
+            <p className="text-xs text-gray-400">{toCity}</p>
+          </div>
+        </div>
+        {airline && (
+          <p className="text-xs text-gray-500 mt-1.5">{airline}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-gray-300 transition-all">
+    <div
+      className={`bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-gray-300 transition-all ${hasReturnDetails ? "cursor-pointer" : ""}`}
+      onClick={() => hasReturnDetails && setExpanded(!expanded)}
+    >
       {/* Top row: CPP badge + trip type */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -96,12 +168,19 @@ export function DealCard(props: DealCardProps) {
             {cents_per_point}&#162;/pt &middot; {cppLabel}
           </span>
         </div>
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-          {tripType}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+            {tripType}
+          </span>
+          {hasReturnDetails && (
+            <span className={`text-gray-400 text-xs transition-transform ${expanded ? "rotate-180" : ""}`}>
+              &#9660;
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Flight route visual */}
+      {/* Outbound flight route */}
       <div className="flex items-center gap-3 mb-3">
         <div className="text-center min-w-[60px]">
           {departure_time && (
@@ -124,7 +203,7 @@ export function DealCard(props: DealCardProps) {
             </div>
             <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-l-[8px] border-l-gray-300" />
           </div>
-          <p className="text-xs text-gray-400 mt-1">{stopsLabel}</p>
+          <p className="text-xs text-gray-400 mt-1">{stopsLabel(stops, layover_airports)}</p>
         </div>
 
         <div className="text-center min-w-[60px]">
@@ -172,6 +251,30 @@ export function DealCard(props: DealCardProps) {
           </>
         )}
       </div>
+
+      {/* Expanded: Return flight details */}
+      {expanded && hasReturnDetails && (
+        <div className="border-t border-gray-100 pt-4 mb-4">
+          <FlightLeg
+            label="Return flight"
+            fromCode={destination}
+            fromCity={destination_city}
+            toCode={origin}
+            toCity={origin_city}
+            depTime={return_departure_time}
+            arrTime={return_arrival_time}
+            dur={return_duration_minutes}
+            numStops={return_stops}
+            layovers={return_layover_airports}
+            airline={return_operating_airline !== operating_airline ? return_operating_airline : null}
+          />
+        </div>
+      )}
+
+      {/* Click hint for round trips */}
+      {hasReturnDetails && !expanded && (
+        <p className="text-[10px] text-gray-300 mb-3">Tap to see return flight</p>
+      )}
 
       {/* Price comparison */}
       <div className="flex items-center gap-3">

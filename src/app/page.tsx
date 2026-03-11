@@ -23,6 +23,12 @@ interface Deal {
   stops: number | null;
   layover_airports: string | null;
   is_round_trip: number;
+  return_departure_time: string | null;
+  return_arrival_time: string | null;
+  return_duration_minutes: number | null;
+  return_stops: number | null;
+  return_layover_airports: string | null;
+  return_operating_airline: string | null;
 }
 
 export default function HomePage() {
