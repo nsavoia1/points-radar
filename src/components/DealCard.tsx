@@ -1,5 +1,7 @@
 "use client";
 
+import { getCardPrograms, getCardShortName } from "@/lib/programs";
+
 interface DealCardProps {
   origin_city: string;
   destination_city: string;
@@ -135,7 +137,7 @@ export function DealCard(props: DealCardProps) {
       </div>
 
       {/* Airline + cabin */}
-      <div className="flex items-center gap-2 mb-3 text-xs">
+      <div className="flex items-center gap-2 mb-1 text-xs">
         {operating_airline && (
           <span className="font-medium text-gray-700">{operating_airline}</span>
         )}
@@ -144,6 +146,21 @@ export function DealCard(props: DealCardProps) {
         <span className="text-gray-300">&middot;</span>
         <span className="text-gray-500">{airline_program}</span>
       </div>
+
+      {/* Transfer path */}
+      {(() => {
+        const cards = getCardPrograms(airline_program);
+        if (cards.length === 0) return null;
+        return (
+          <div className="flex items-center gap-1 mb-3 text-xs text-indigo-500">
+            <span className="font-medium">
+              {cards.map(getCardShortName).join(", ")}
+            </span>
+            <span>&rarr;</span>
+            <span>{airline_program}</span>
+          </div>
+        );
+      })()}
 
       {/* Dates */}
       <div className="flex items-center gap-1 text-xs text-gray-400 mb-4">

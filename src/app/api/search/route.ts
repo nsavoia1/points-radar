@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   const endDate = req.nextUrl.searchParams.get("endDate");
   const cabin = req.nextUrl.searchParams.get("cabin");
   const exactDates = req.nextUrl.searchParams.get("exactDates") === "1";
+  const tripType = req.nextUrl.searchParams.get("tripType"); // "roundtrip" | "oneway" | null (all)
 
   if (!originRaw || !program) {
     return NextResponse.json(
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
     AND (${!exactDates || !startDate}::boolean OR departure_date = ${startDate || ''})
     AND (${!exactDates || !endDate}::boolean OR return_date = ${endDate || ''})
     AND (${!cabin}::boolean OR cabin_class = ${cabin || ''})
+    AND (${!tripType}::boolean OR is_round_trip = ${tripType === 'roundtrip' ? 1 : 0})
     ORDER BY cents_per_point DESC
   `;
 
@@ -88,7 +90,13 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 3. Merge and rank
+  // 3. Filter live deals by trip type if specified
+  if (tripType && liveDeals.length > 0) {
+    const isRoundTrip = tripType === "roundtrip" ? 1 : 0;
+    liveDeals = liveDeals.filter((d) => d.is_round_trip === isRoundTrip);
+  }
+
+  // 4. Merge and rank
   const allDeals = [...(dbRows as any[]), ...liveDeals];
   const deals = rankDeals(allDeals);
 

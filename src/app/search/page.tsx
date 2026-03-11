@@ -38,6 +38,7 @@ export default function SearchPage() {
   const [endDate, setEndDate] = useState("");
   const [cabin, setCabin] = useState("");
   const [flexibleDates, setFlexibleDates] = useState(true);
+  const [tripType, setTripType] = useState<"all" | "roundtrip" | "oneway">("all");
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -59,6 +60,7 @@ export default function SearchPage() {
     if (endDate) params.set("endDate", endDate);
     if (cabin) params.set("cabin", cabin);
     if (!flexibleDates) params.set("exactDates", "1");
+    if (tripType !== "all") params.set("tripType", tripType);
 
     try {
       const res = await fetch(`/api/search?${params}`);
@@ -140,6 +142,29 @@ export default function SearchPage() {
             >
               {loading ? "Searching..." : "Search Deals"}
             </button>
+          </div>
+        </div>
+
+        {/* Trip type selector */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Trip Type
+          </label>
+          <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+            {([["all", "All"], ["roundtrip", "Round Trip"], ["oneway", "One Way"]] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTripType(value)}
+                className={`px-4 py-1.5 font-medium transition-colors ${
+                  tripType === value
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                } ${value !== "all" ? "border-l border-gray-300" : ""}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 

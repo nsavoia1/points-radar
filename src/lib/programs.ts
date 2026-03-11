@@ -40,6 +40,31 @@ export function getAirlinePrograms(program: string): string[] {
   return [program];
 }
 
+/**
+ * Reverse lookup: given an airline program, return which card programs transfer to it.
+ * e.g. "ANA Mileage Club" → ["Amex Membership Rewards"]
+ */
+export function getCardPrograms(airlineProgram: string): string[] {
+  const cards: string[] = [];
+  for (const [card, partners] of Object.entries(TRANSFER_PARTNERS)) {
+    if (partners.includes(airlineProgram)) {
+      cards.push(card);
+    }
+  }
+  return cards;
+}
+
+/** Short display names for card programs */
+const CARD_SHORT_NAMES: Record<string, string> = {
+  "Chase Ultimate Rewards": "Chase",
+  "Amex Membership Rewards": "Amex",
+  "Capital One Miles": "Capital One",
+};
+
+export function getCardShortName(cardProgram: string): string {
+  return CARD_SHORT_NAMES[cardProgram] || cardProgram;
+}
+
 export const ALL_PROGRAMS = [
   "Chase Ultimate Rewards",
   "Amex Membership Rewards",
